@@ -91,9 +91,7 @@ class BaseParser(object):
             if value != obj.cib.get(key):
                 return False
             obj_key.remove(key)
-        if len(obj_key) and not self.partial_compare:
-            return False
-        return True
+        return bool(not len(obj_key) or self.partial_compare)
 
 
 class PrimitiveParser(BaseParser):
@@ -111,21 +109,19 @@ class PrimitiveParser(BaseParser):
             if (arg in ["params", "meta", "utilization",
                         "operations", "op"]):
                 mode = arg
-                if (arg == "op"):
+                if mode == "op":
                     op_type = args.pop(0)
                 continue
-    
+
             if '=' not in arg:
-                raise Exception("no key=value option: %s" % arg)
+                raise Exception(f"no key=value option: {arg}")
 
             key, value = arg.split("=")
             if key == "":
                 self.module.fail_json(
                     rc=258, msg="no key in key=value option")
             if value == "":
-                self.module.fail_json(
-                    rc=258,
-                    msg="no value in key=value option (key=%s)" % key)
+                self.module.fail_json(rc=258, msg=f"no value in key=value option (key={key})")
 
             if mode not in ret:
                 ret[mode] = {}
@@ -145,12 +141,11 @@ class MonitorParser(BaseParser):
     id_name = "rsc"
 
     def parse(self, args):
-        ret = dict(
+        return dict(
             command=args.pop(0),
             rsc=args.pop(0),
             interval=args.pop(0),
-            )
-        return ret
+        )
 
 
 class GroupParser(BaseParser):
@@ -163,7 +158,7 @@ class GroupParser(BaseParser):
             rsc=[],
             )
         mode = None
-        while (args):
+        while args:
             arg = args.pop(0)
             if (arg in ["params", "meta"]):
                 mode = arg
@@ -179,9 +174,7 @@ class GroupParser(BaseParser):
                     rc=258,
                     msg="no key in key=value option")
             if value == "":
-                self.module.fail_json(
-                    rc=258,
-                    msg="no value in key=value option (key=%s)" % key)
+                self.module.fail_json(rc=258, msg=f"no value in key=value option (key={key})")
             if mode not in ret:
                 ret[mode] = {}
             ret[mode][key] = value
@@ -199,28 +192,26 @@ class CloneParser(BaseParser):
             rsc=args.pop(0),
             )
         mode = None
-        while (args):
+        while args:
             arg = args.pop(0)
             if (arg in ["params", "meta"]):
                 mode = arg
                 continue
-    
+
             if mode is None:
                 self.module.fail_json(rc=258, msg="no params or meta")
-    
+
             key, value = arg.split("=")
             if key == "":
                 self.module.fail_json(
                     rc=258,
                     msg="no key in key=value option")
             if value == "":
-                self.module.fail_json(
-                    rc=258,
-                    msg="no value in key=value option (key=%s)" % key)
+                self.module.fail_json(rc=258, msg=f"no value in key=value option (key={key})")
             if mode not in ret:
                 ret[mode] = {}
             ret[mode][key] = value
-    
+
         return ret
 
 
@@ -250,7 +241,7 @@ class LocationParser(BaseParser):
             ret["rules"] = []
 
         newrule = None
-        while (args):
+        while args:
             arg = args.pop(0)
 
             if arg == "rule":
@@ -261,9 +252,7 @@ class LocationParser(BaseParser):
                 while arg.startswith("$"):
                     key, value = arg.split("=")
                     if value == "":
-                        self.module.fail_json(
-                            rc=258,
-                            msg="no value in key=value option (key=%s)" % key)
+                        self.module.fail_json(rc=258, msg=f"no value in key=value option (key={key})")
                     newargs[key] = value
                     arg = args.pop(0)
                 if arg.endswith(":"):
@@ -271,15 +260,15 @@ class LocationParser(BaseParser):
                 else:
                     self.module.fail_json(
                         rc=258,
-                        msg="no score in rule for location (id=%s)" % ret["id"])
+                        msg=f'no score in rule for location (id={ret["id"]})',
+                    )
+
 
             elif newrule is not None:
                 newrule["expression"].append(args)
 
             else:
-                self.module.fail_json(
-                    rc=258,
-                    msg="no rule for location (id=%s)" % ret["id"])
+                self.module.fail_json(rc=258, msg=f'no rule for location (id={ret["id"]})')
         if newrule:
             ret["rules"].append(newrule)
 
@@ -290,26 +279,24 @@ class ColocationParser(BaseParser):
     id_name = "id"
 
     def parse(self, args):
-        ret = dict(
+        return dict(
             command=args.pop(0),
             id=args.pop(0),
             score=args.pop(0),
             rsc=args[:],
-            )
-        return ret
+        )
 
 
 class OrderParser(BaseParser):
     id_name = "id"
 
     def parse(self, args):
-        ret = dict(
+        return dict(
             command=args.pop(0),
             id=args.pop(0),
             kind_or_score=args.pop(0),
             rsc=args[:],
-            )
-        return ret
+        )
 
 
 class PropertyParser(BaseParser):
@@ -325,25 +312,21 @@ class PropertyParser(BaseParser):
 
         if args[0].startswith("cib-bootstrap-options:"):
             args.pop(0)
-    
-        while (args):
+
+        while args:
             arg = args.pop(0)
             if '=' not in arg:
-                self.module.fail_json(
-                    rc=258,
-                    msg="no key-value :%s" % arg)
+                self.module.fail_json(rc=258, msg=f"no key-value :{arg}")
             key, value = arg.split("=")
-    
+
             if key == "":
                 self.module.fail_json(
                     rc=258,
                     msg="no key in key=value option")
             if value == "":
-                self.module.fail_json(
-                    rc=258,
-                    msg="no value in key=value option (key=%s)" % key)
+                self.module.fail_json(rc=258, msg=f"no value in key=value option (key={key})")
             ret[key] = value
-    
+
         return ret
 
 
@@ -377,7 +360,7 @@ class FencingTopologyParser(BaseParser):
                 newfence.append(arg)
         if newnode:
             ret[newnode] = newfence
-    
+
         return ret
 
 
@@ -414,7 +397,7 @@ class CIBParser(object):
     def parse_cib(self, args):
         if args[0] in self.cib_parser_class:
             return self.cib_parser_class[args[0]]\
-                    (args[:], module=self.module)
+                        (args[:], module=self.module)
         return None
 
     def parse_cibs(self, lines):
@@ -428,8 +411,7 @@ class CIBParser(object):
                 if len(new_line) == 0:
                     continue
                 args = splitter(new_line)
-                cib = self.parse_cib(args)
-                if cib:
+                if cib := self.parse_cib(args):
                     cibs.append(cib)
                 new_line = ""
         return cibs
@@ -439,7 +421,7 @@ def main():
 
     # the command module is the one ansible module that does not take key=value args
     # hence don't copy this one if you are looking to build others!
-    module = PacemakerModule(argument_spec=dict())
+    module = PacemakerModule(argument_spec={})
 
     state = module.params['state']
     need_commit = module.params['commit']
@@ -490,8 +472,10 @@ def main():
 
     crm_config_commands = []
     if need_delete:
-        crm_config_commands.append(["resource", "stop", new.id])
-        crm_config_commands.append(["configure", "delete", new.id])
+        crm_config_commands.extend(
+            (["resource", "stop", new.id], ["configure", "delete", new.id])
+        )
+
     if need_append:
         crm_config_commands.append(["configure"] + args)
     if need_commit:
@@ -523,10 +507,8 @@ class PacemakerModule(AnsibleModule):
     def _load_params(self):
         ''' read the input and return a dictionary and the arguments string '''
         args = MODULE_ARGS
-        params = {}
+        params = {"state": "present", "commit": True}
 
-        params["state"] = "present"
-        params["commit"] = True
         r = re.compile(r'(^|\s)(state)=(?P<quote>[\'"])?(.*?)(?(quote)(?<!\\)(?P=quote))((?<!\\)(?=\s)|$)')
         for m in r.finditer(args):
             v = m.group(4).replace("\\", "")

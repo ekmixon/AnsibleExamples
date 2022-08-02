@@ -99,7 +99,7 @@ def _get_ksclient(module, kwargs):
             auth_url=module.params.get('auth_url'),
             region_name=module.params.get('region_name'))
     except Exception as e:
-        module.fail_json(msg = "Error authenticating to the keystone: %s " % e.message)
+        module.fail_json(msg=f"Error authenticating to the keystone: {e.message} ")
     global _os_keystone
     _os_keystone = kclient
     return kclient
@@ -109,7 +109,7 @@ def _get_endpoint(module, ksclient):
     try:
         endpoint = ksclient.service_catalog.url_for(service_type='network', endpoint_type='publicURL')
     except Exception as e:
-        module.fail_json(msg = "Error getting endpoint for glance: %s" % e.message)
+        module.fail_json(msg=f"Error getting endpoint for glance: {e.message}")
     return endpoint
 
 def _get_neutron_client(module, kwargs):
@@ -123,7 +123,7 @@ def _get_neutron_client(module, kwargs):
     try:
         neutron = client.Client('2.0', **kwargs)
     except Exception as e:
-        module.fail_json(msg = "Error in connecting to Neutron: %s " % e.message)
+        module.fail_json(msg=f"Error in connecting to Neutron: {e.message} ")
     return neutron
 
 def _set_tenant_id(module):
@@ -151,10 +151,8 @@ def _get_router_id(module, neutron):
     try:
         routers = neutron.list_routers(**kwargs)
     except Exception as e:
-        module.fail_json(msg = "Error in getting the router list: %s " % e.message)
-    if not routers['routers']:
-        return None
-    return routers['routers'][0]['id']
+        module.fail_json(msg=f"Error in getting the router list: {e.message} ")
+    return routers['routers'][0]['id'] if routers['routers'] else None
 
 def _create_router(module, neutron):
     router = {
@@ -165,7 +163,7 @@ def _create_router(module, neutron):
     try:
         new_router = neutron.create_router(dict(router=router))
     except Exception as e:
-        module.fail_json( msg = "Error in creating router: %s" % e.message)
+        module.fail_json(msg=f"Error in creating router: {e.message}")
     return new_router['router']['id']
 
 def _delete_router(module, neutron, router_id):
@@ -194,20 +192,17 @@ def main():
     _set_tenant_id(module)
 
     if module.params['state'] == 'present':
-        router_id = _get_router_id(module, neutron)
-        if not router_id:
-            router_id = _create_router(module, neutron)
-            module.exit_json(changed=True, result="Created", id=router_id)
-        else:
+        if router_id := _get_router_id(module, neutron):
             module.exit_json(changed=False, result="success" , id=router_id)
 
-    else:
-        router_id = _get_router_id(module, neutron)
-        if not router_id:
-            module.exit_json(changed=False, result="success")
         else:
-            _delete_router(module, neutron, router_id)
-            module.exit_json(changed=True, result="deleted")
+            router_id = _create_router(module, neutron)
+            module.exit_json(changed=True, result="Created", id=router_id)
+    elif router_id := _get_router_id(module, neutron):
+        _delete_router(module, neutron, router_id)
+        module.exit_json(changed=True, result="deleted")
+    else:
+        module.exit_json(changed=False, result="success")
 
 # this is magic, see lib/ansible/module.params['common.py
 from ansible.module_utils.basic import *

@@ -113,8 +113,9 @@ class AnsibleMySQL(object):
         """
         Build inventory group list
         """
+        self.hostvars = {}
         for self.row in range(len(self.rows)):
-            self.hosts = list()
+            self.hosts = []
             self.group = (self.rows[self.row][0])
             self.host = (self.rows[self.row][1])
             for self.row2 in range(len(self.rows2)):
@@ -124,7 +125,6 @@ class AnsibleMySQL(object):
                 """
                 self.group2 = (self.rows2[self.row2][0])
                 self.host2 = (self.rows2[self.row2][1])
-                self.hostvars = {}
                 if self.group2 == self.group:
                     self.hosts.append(self.host2)
                     self.inventory[self.group] = {
@@ -151,8 +151,7 @@ class AnsibleMySQL(object):
 
         Gathers all parent level hostvars and displays them...
         """
-        self.inventory['_meta'] = {}
-        self.inventory['_meta']['hostvars'] = {}
+        self.inventory['_meta'] = {'hostvars': {}}
         for self.row in range(len(self.rows3)):
             self.hosts = self.rows3[self.row][0]
             self.inventory['_meta']['hostvars'][self.hosts] = {}

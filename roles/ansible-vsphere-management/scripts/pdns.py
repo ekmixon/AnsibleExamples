@@ -506,20 +506,23 @@ class PDNSControl(object):
         self.headers = {'X-API-Key': self.args.apikey}
         if (self.args.action == "add_zones" or (self.args.action == "query_zones" and
                                                 self.args.zone is None)):
-            self.uri = ("http://%s:%s%s/servers/localhost/zones"
-                        % (self.args.apihost, self.args.apiport, self.args.apiversion))
-        elif ((self.args.action == "add_records" and self.args.readcsv is None)
-              or (self.args.action == "delete_records" and self.args.readcsv is None)
-              or self.args.action == "delete_zones" or
-              (self.args.action == "query_zones" and self.args.zone is not None)):
-            self.uri = ("http://%s:%s%s/servers/localhost/zones/%s"
-                        % (self.args.apihost, self.args.apiport, self.args.apiversion, self.args.zone))
+            self.uri = f"http://{self.args.apihost}:{self.args.apiport}{self.args.apiversion}/servers/localhost/zones"
+
+        elif (
+            self.args.action == "add_records"
+            and self.args.readcsv is None
+            or self.args.action == "delete_records"
+            and self.args.readcsv is None
+            or self.args.action == "delete_zones"
+            or self.args.action == "query_zones"
+        ):
+            self.uri = f"http://{self.args.apihost}:{self.args.apiport}{self.args.apiversion}/servers/localhost/zones/{self.args.zone}"
+
         elif self.args.action == "query_config":
-            self.uri = ("http://%s:%s%s/servers/localhost/config"
-                        % (self.args.apihost, self.args.apiport, self.args.apiversion))
+            self.uri = f"http://{self.args.apihost}:{self.args.apiport}{self.args.apiversion}/servers/localhost/config"
+
         elif self.args.action == "query_stats":
-            self.uri = ("http://%s:%s%s/servers/localhost/statistics"
-                        % (self.args.apihost, self.args.apiport, self.args.apiversion))
+            self.uri = f"http://{self.args.apihost}:{self.args.apiport}{self.args.apiversion}/servers/localhost/statistics"
 
 
 if __name__ == '__main__':

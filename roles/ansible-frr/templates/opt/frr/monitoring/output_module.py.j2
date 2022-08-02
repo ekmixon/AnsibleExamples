@@ -64,17 +64,19 @@ class ExportData(object):
         Used for debugging purposes, this function displays data in a human
         readable format.
         """
-        output = "######################\n"
-        output += "   Sanity checking:\n"
+        output = "######################\n" + "   Sanity checking:\n"
         output += "######################\n"
         output += "<data set name is: %s >\n" % self.data_set_name
         output += "    data has fixed tags: \n        "
         output += "%s \n" % (self.__fixed_tags())
         output += "    variable_tags     data\n"
-        for i in range(0, len(self.data)):
-            output += "      %s    %s\n" % (self.__variable_tags(i),
-                                            self.__data_points(i)[0:-1])
-        print output
+        for i in range(len(self.data)):
+            output += "      %s    %s\n" % (
+                self.__variable_tags(i),
+                self.__data_points(i)[:-1],
+            )
+
+        output = "######################\n"
 
     def add_row(self, variable_tags, data):
         if type(data) is not dict:
@@ -100,35 +102,33 @@ class ExportData(object):
                 exit(1)
 
     def __fixed_tags(self):
-        fixed_tags_string = ""
-        for tag in self.fixed_tags:
-            fixed_tags_string += "%s=%s" % (tag, self.fixed_tags[tag])
-        return fixed_tags_string
+        return "".join(f"{tag}={self.fixed_tags[tag]}" for tag in self.fixed_tags)
 
     def __variable_tags(self, index):
-        variable_tags_string = ""
-        for tag in self.variable_tags[index]:
-            variable_tags_string += ",%s=%s" % (tag,
-                                                self.variable_tags[index][tag])
-        if variable_tags_string == "":
-            return ""
-        return variable_tags_string
+        variable_tags_string = "".join(
+            f",{tag}={self.variable_tags[index][tag]}"
+            for tag in self.variable_tags[index]
+        )
+
+        return variable_tags_string or ""
 
     def __data_points(self, index):
-        data_points_string = ""
         data_element = self.data[index]
-        for data_column in data_element:
-            data_points_string += "%s=%s," % (data_column,
-                                              data_element[data_column])
-        if data_points_string == "":
-            return ""
-        return data_points_string[0:-1]
+        data_points_string = "".join(
+            f"{data_column}={data_element[data_column]},"
+            for data_column in data_element
+        )
+
+        return data_points_string[:-1] if data_points_string else ""
 
     def __repr__(self):
-        output = ""
-        for i in range(0, len(self.data)):
-            output += "%s,%s%s %s\n" % (self.data_set_name,
-                                        self.__fixed_tags(),
-                                        self.__variable_tags(i),
-                                        self.__data_points(i))
-        return output
+        return "".join(
+            "%s,%s%s %s\n"
+            % (
+                self.data_set_name,
+                self.__fixed_tags(),
+                self.__variable_tags(i),
+                self.__data_points(i),
+            )
+            for i in range(len(self.data))
+        )

@@ -200,9 +200,9 @@ def main():
         module.exit_json(changed=False)
 
     except exceptions.Unauthorized as exc:
-        module.fail_json(msg="Authentication error: %s" % str(exc))
+        module.fail_json(msg=f"Authentication error: {str(exc)}")
     except Exception as exc:
-        module.fail_json(msg="Error: %s" % str(exc))
+        module.fail_json(msg=f"Error: {str(exc)}")
 
 
 def _delete_sg(module, network_client, sec_group):
@@ -257,23 +257,19 @@ def _update_sg(module, network_client, sg, tenant_id):
     sg = sg['security_group']
 
     # We only allow description updating, no name updating
-    if module.params['description'] \
-        and not module.params['description'] == sg['description'] \
-        and module.check_mode:
-
-        changed = True
-    elif module.params['description'] \
-        and not module.params['description'] == sg['description'] \
-        and not module.check_mode:
-        body = {
-            'security_group': {
-                'description': module.params['description']
+    if (
+        module.params['description']
+        and module.params['description'] != sg['description']
+    ):
+        if not module.check_mode:
+            body = {
+                'security_group': {
+                    'description': module.params['description']
+                }
             }
-        }
-        sg = network_client.update_security_group(sg['id'], body)
-        sg = sg['security_group']
+            sg = network_client.update_security_group(sg['id'], body)
+            sg = sg['security_group']
         changed = True
-
     if module.params['rules'] is not None:
         rules_changed = _update_sg_rules(module, network_client, sg,
                                          module.params['rules'], tenant_id)
@@ -396,14 +392,9 @@ def _get_tenant_id(module, identity_client):
            name.
     :param module_params: module parameters.
     """
-    if not module.params['tenant_name']:
-        if module.params['login_tenant_id']:
-            return module.params['login_tenant_id']
-
-        # Use token to get ID to avoid using "admin"/internal call
-        return identity_client.tenant_id
-    else:
+    if module.params['tenant_name']:
         return _get_tenant(identity_client, module.params['tenant_name']).id
+    return module.params['login_tenant_id'] or identity_client.tenant_id
 
 
 def _get_tenant(identity_client, tenant_name):
@@ -414,11 +405,10 @@ def _get_tenant(identity_client, tenant_name):
     :return: tenant for which the name was given.
     """
     tenants = identity_client.tenants.list()
-    tenant = next((t for t in tenants if t.name == tenant_name), None)
-    if not tenant:
+    if tenant := next((t for t in tenants if t.name == tenant_name), None):
+        return tenant
+    else:
         raise Exception("Tenant with name '%s' not found." % tenant_name)
-
-    return tenant
 
 
 def _get_network_client(module_params):

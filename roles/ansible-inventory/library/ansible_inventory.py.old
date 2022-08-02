@@ -76,9 +76,7 @@ def all_groups():
     cur = con.cursor()
     cur.execute(sql)
     rows = cur.fetchall()
-    results = []
-    for row in rows:
-        results.append(row)
+    results = list(rows)
     print(json.dumps(results))
     cur.close()
     con.close()
@@ -96,9 +94,7 @@ def all_hosts():
     cur = con.cursor()
     cur.execute(sql)
     rows = cur.fetchall()
-    results = []
-    for row in rows:
-        results.append(row)
+    results = list(rows)
     print(json.dumps(results))
     cur.close()
     con.close()
@@ -122,14 +118,18 @@ def all_inventory():
     cur = con.cursor()
     cur.execute(sql)
     rows = cur.fetchall()
-    results = []
-    for HostName, AnsibleSSHHost, HostDistribution, HostDistributionRelease, \
-        HostDistributionVersion, GroupName in rows: \
-        results.append({'host': HostName, 'ansible_ssh_host': AnsibleSSHHost, \
-        'ansible_distribution': HostDistribution, \
-        'ansible_distribution_release': HostDistributionRelease, \
-        'ansible_distribution_version': HostDistributionVersion, \
-        'groups': GroupName})
+    results = [
+        {
+            'host': HostName,
+            'ansible_ssh_host': AnsibleSSHHost,
+            'ansible_distribution': HostDistribution,
+            'ansible_distribution_release': HostDistributionRelease,
+            'ansible_distribution_version': HostDistributionVersion,
+            'groups': GroupName,
+        }
+        for HostName, AnsibleSSHHost, HostDistribution, HostDistributionRelease, HostDistributionVersion, GroupName in rows
+    ]
+
     print(json.dumps(results, sort_keys=True))
     cur.close()
     con.close()
@@ -153,9 +153,11 @@ def query_group():
     cur = con.cursor()
     cur.execute(sql)
     rows = cur.fetchall()
-    results = []
-    for HostName, AnsibleSSHHost in rows:
-        results.append({'host': HostName, 'ansible_ssh_host': AnsibleSSHHost})
+    results = [
+        {'host': HostName, 'ansible_ssh_host': AnsibleSSHHost}
+        for HostName, AnsibleSSHHost in rows
+    ]
+
     print(json.dumps(results))
     cur.close()
     con.close()
@@ -179,10 +181,15 @@ def query_host():
     cur = con.cursor()
     cur.execute(sql)
     rows = cur.fetchall()
-    results = []
-    for HostName, AnsibleSSHHost, GroupName in rows:
-        results.append({'host': HostName, 'ansible_ssh_host': AnsibleSSHHost,
-                        'groups': GroupName})
+    results = [
+        {
+            'host': HostName,
+            'ansible_ssh_host': AnsibleSSHHost,
+            'groups': GroupName,
+        }
+        for HostName, AnsibleSSHHost, GroupName in rows
+    ]
+
     print(json.dumps(results, sort_keys=True))
     cur.close()
     con.close()

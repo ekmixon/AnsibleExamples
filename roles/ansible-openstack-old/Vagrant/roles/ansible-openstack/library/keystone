@@ -451,12 +451,13 @@ class ManageKeystone(object):
             self.failure(
                 error='No Command Found',
                 rc=2,
-                msg='Command [ %s ] was not found.' % command_name
+                msg=f'Command [ {command_name} ] was not found.',
             )
 
+
         action_command = COMMAND_MAP[command_name]
-        if hasattr(self, '%s' % command_name):
-            action = getattr(self, '%s' % command_name)
+        if hasattr(self, f'{command_name}'):
+            action = getattr(self, f'{command_name}')
             facts = action(variables=action_command['variables'])
             if facts is None:
                 self.module.exit_json(changed=self.state_change)
@@ -469,7 +470,7 @@ class ManageKeystone(object):
             self.failure(
                 error='Command not in ManageKeystone class',
                 rc=2,
-                msg='Method [ %s ] was not found.' % command_name
+                msg=f'Method [ {command_name} ] was not found.',
             )
 
     @staticmethod
@@ -487,22 +488,22 @@ class ManageKeystone(object):
                                     use within the Keystone Command.
         :param required: ``list``  Name of variables that are required.
         """
-        return_dict = {}
-        for variable in variables:
-            return_dict[variable] = self.module.params.get(variable)
-        else:
-            if isinstance(required, list):
-                for var_name in required:
-                    check = return_dict.get(var_name)
-                    if check is None:
-                        self.failure(
-                            error='Missing [ %s ] from Task or found a None'
-                                  ' value' % var_name,
-                            rc=000,
-                            msg='variables %s - available params [ %s ]'
-                                % (variables, self.module.params)
-                        )
-            return return_dict
+        return_dict = {
+            variable: self.module.params.get(variable) for variable in variables
+        }
+
+        if isinstance(required, list):
+            for var_name in required:
+                check = return_dict.get(var_name)
+                if check is None:
+                    self.failure(
+                        error='Missing [ %s ] from Task or found a None'
+                        ' value' % var_name,
+                        rc=000,
+                        msg=f'variables {variables} - available params [ {self.module.params} ]',
+                    )
+
+        return return_dict
 
     def failure(self, error, rc, msg):
         """Return a Failure when running an Ansible command.
@@ -573,11 +574,14 @@ class ManageKeystone(object):
 
         :param str name: Name of the domain.
         """
-        for entry in self.keystone.domains.list():
-            if entry.name == name:
-                return entry
-        else:
-            return None
+        return next(
+            (
+                entry
+                for entry in self.keystone.domains.list()
+                if entry.name == name
+            ),
+            None,
+        )
 
     def _get_project(self, name):
         """Return project information.
@@ -586,11 +590,14 @@ class ManageKeystone(object):
 
         :param name: ``str``  Name of the project.
         """
-        for entry in self.keystone.projects.list():
-            if entry.name == name:
-                return entry
-        else:
-            return None
+        return next(
+            (
+                entry
+                for entry in self.keystone.projects.list()
+                if entry.name == name
+            ),
+            None,
+        )
 
     def get_tenant(self, variables):
         return self.get_project(variables)
@@ -610,10 +617,11 @@ class ManageKeystone(object):
         project = self._get_project(name=project_name)
         if project is None:
             self.failure(
-                error='project [ %s ] was not found.' % project_name,
+                error=f'project [ {project_name} ] was not found.',
                 rc=2,
-                msg='project was not found, does it exist?'
+                msg='project was not found, does it exist?',
             )
+
 
         return self._facts(facts={'id': project.id})
 
@@ -635,7 +643,7 @@ class ManageKeystone(object):
         domain_name = variables_dict.pop('domain_name', None) or 'Default'
         project_description = variables_dict.pop('description')
         if project_description is None:
-            project_description = 'Project %s' % project_name
+            project_description = f'Project {project_name}'
 
         domain = self._get_domain(name=domain_name)
         project = self._get_project(name=project_name)
@@ -657,11 +665,14 @@ class ManageKeystone(object):
 
         :param name: ``str``  Name of the user.
         """
-        for entry in self.keystone.users.list():
-            if getattr(entry, 'name', None) == name:
-                return entry
-        else:
-            return None
+        return next(
+            (
+                entry
+                for entry in self.keystone.users.list()
+                if getattr(entry, 'name', None) == name
+            ),
+            None,
+        )
 
     def get_user(self, variables):
         """Return a project id.
@@ -677,10 +688,11 @@ class ManageKeystone(object):
         user = self._get_user(name=user_name)
         if user is None:
             self.failure(
-                error='user [ %s ] was not found.' % user_name,
+                error=f'user [ {user_name} ] was not found.',
                 rc=2,
-                msg='user was not found, does it exist?'
+                msg='user was not found, does it exist?',
             )
+
 
         return self._facts(facts={'id': user.id})
 
@@ -712,10 +724,11 @@ class ManageKeystone(object):
         project = self._get_project(name=project_name)
         if project is None:
             self.failure(
-                error='project [ %s ] was not found.' % project_name,
+                error=f'project [ {project_name} ] was not found.',
                 rc=2,
-                msg='project was not found, does it exist?'
+                msg='project was not found, does it exist?',
             )
+
 
         user = self._get_user(name=user_name)
         if user is None:
@@ -737,11 +750,10 @@ class ManageKeystone(object):
 
         :param name: ``str``  Name of the role.
         """
-        for entry in self.keystone.roles.list():
-            if entry.name == name:
-                return entry
-        else:
-            return None
+        return next(
+            (entry for entry in self.keystone.roles.list() if entry.name == name),
+            None,
+        )
 
     def _get_group(self, name, domain=None):
         """Return a group by name.
@@ -754,11 +766,9 @@ class ManageKeystone(object):
             if domain is None:
                 if entry.name == name:
                     return entry
-            else:
-                if entry.name == name and entry.domain_id == domain.id:
-                    return entry
-        else:
-            return None
+            elif entry.name == name and entry.domain_id == domain.id:
+                return entry
+        return None
 
     def get_role(self, variables):
         """Return a role by name.
@@ -774,10 +784,11 @@ class ManageKeystone(object):
         role_data = self._get_role(name=role_name)
         if role_data is None:
             self.failure(
-                error='role [ %s ] was not found.' % role_name,
+                error=f'role [ {role_name} ] was not found.',
                 rc=2,
-                msg='role was not found, does it exist?'
+                msg='role was not found, does it exist?',
             )
+
 
         return self._facts(facts={'id': role_data.id})
 
@@ -786,37 +797,41 @@ class ManageKeystone(object):
             user = self._get_user(name=user_name)
             if user is None:
                 self.failure(
-                    error='user [ %s ] was not found.' % user_name,
+                    error=f'user [ {user_name} ] was not found.',
                     rc=2,
-                    msg='User was not found, does it exist?'
+                    msg='User was not found, does it exist?',
                 )
+
         else:
             user = None
 
         project = self._get_project(name=project_name)
         if project is None:
             self.failure(
-                error='project [ %s ] was not found.' % project_name,
+                error=f'project [ {project_name} ] was not found.',
                 rc=2,
-                msg='project was not found, does it exist?'
+                msg='project was not found, does it exist?',
             )
+
 
         role = self._get_role(name=role_name)
         if role is None:
             self.failure(
-                error='role [ %s ] was not found.' % role_name,
+                error=f'role [ {role_name} ] was not found.',
                 rc=2,
-                msg='role was not found, does it exist?'
+                msg='role was not found, does it exist?',
             )
+
 
         if group_name is not None:
             group = self._get_group(name=group_name)
             if group is None:
                 self.failure(
-                    error='group [ %s ] was not found.' % group_name,
+                    error=f'group [ {group_name} ] was not found.',
                     rc=2,
-                    msg='group was not found, does it exist?'
+                    msg='group was not found, does it exist?',
                 )
+
         else:
             group = None
 
@@ -842,18 +857,24 @@ class ManageKeystone(object):
         return self._facts(facts={'id': role.id})
 
     def _get_user_roles(self, name, user, project):
-        for entry in self.keystone.roles.list(user=user, project=project):
-            if entry.name == name:
-                return entry
-        else:
-            return None
+        return next(
+            (
+                entry
+                for entry in self.keystone.roles.list(user=user, project=project)
+                if entry.name == name
+            ),
+            None,
+        )
 
     def _get_group_roles(self, name, group, project):
-        for entry in self.keystone.roles.list(group=group, project=project):
-            if entry.name == name:
-                return entry
-        else:
-            return None
+        return next(
+            (
+                entry
+                for entry in self.keystone.roles.list(group=group, project=project)
+                if entry.name == name
+            ),
+            None,
+        )
 
     def ensure_user_role(self, variables):
         self._authenticate()
@@ -951,8 +972,7 @@ class ManageKeystone(object):
                     return entry
             elif entry.name == name:
                 return entry
-        else:
-            return None
+        return None
 
     def ensure_service(self, variables):
         """Create a new service within Keystone if it does not exist.
@@ -990,8 +1010,7 @@ class ManageKeystone(object):
             ]
             if all(check):
                 return entry
-        else:
-            return None
+        return None
 
     def ensure_endpoint(self, variables):
         """Create a new endpoint within Keystone if it does not exist.
@@ -1018,10 +1037,11 @@ class ManageKeystone(object):
         service = self._get_service(name=service_name, srv_type=service_type)
         if service is None:
             self.failure(
-                error='service [ %s ] was not found.' % service_name,
+                error=f'service [ {service_name} ] was not found.',
                 rc=2,
-                msg='Service was not found, does it exist?'
+                msg='Service was not found, does it exist?',
             )
+
 
         endpoints = {}
         for endpoint_dict in endpoint_list:
@@ -1043,8 +1063,11 @@ class ManageKeystone(object):
             endpoints[interface] = endpoint
 
         return self._facts(
-            facts={'%sid' % interface: endpoint.id
-                   for interface, endpoint in endpoints.items()})
+            facts={
+                f'{interface}id': endpoint.id
+                for interface, endpoint in endpoints.items()
+            }
+        )
 
     def _ensure_generic(self, manager, required_vars, variables):
         """Try and create a new 'thing' in keystone.

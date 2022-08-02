@@ -161,7 +161,7 @@ def read_pdns_conf(path='/etc/powerdns/pdns.conf'):
 
     try:
         for line in fileinput.input([path]):
-            if line[0] == '#' or line[0] == '\n':
+            if line[0] in ['#', '\n']:
                 continue
             try:
                 (key, val) = line.rstrip().split('=')
@@ -187,7 +187,7 @@ def zone_exists(module, base_url, zone):
         return None
 
     if info['status'] != 200:
-        module.fail_json(msg="failed to check zone %s at %s: %s" % (zone, url, info['msg']))
+        module.fail_json(msg=f"failed to check zone {zone} at {url}: {info['msg']}")
 
     content = response.read()
     data = json.loads(content)
@@ -200,23 +200,23 @@ def zone_exists(module, base_url, zone):
 def zone_list(module, base_url, zone=None):
     ''' Return list of existing zones '''
 
-    list = []
     url = "{0}".format(base_url)
 
     response, info = fetch_url(module, url, headers=headers)
     if info['status'] != 200:
-        module.fail_json(msg="failed to enumerate zones at %s: %s" % (url, info['msg']))
+        module.fail_json(msg=f"failed to enumerate zones at {url}: {info['msg']}")
 
     content = response.read()
     data = json.loads(content)
-    for z in data:
-        if zone is None or fnmatch.fnmatch(z['name'], zone):
-            list.append({
-                'name'      : z['name'],
-                'kind'      : z['kind'].lower(),
-                'serial'    : z['serial'],
-            })
-    return list
+    return [
+        {
+            'name': z['name'],
+            'kind': z['kind'].lower(),
+            'serial': z['serial'],
+        }
+        for z in data
+        if zone is None or fnmatch.fnmatch(z['name'], zone)
+    ]
 
 def zone_delete(module, base_url, zone):
     ''' Delete a zone in PowerDNS '''
@@ -227,7 +227,7 @@ def zone_delete(module, base_url, zone):
     if info['status'] == 422:
         return False
     if info['status'] != 200:
-        module.fail_json(msg="failed to delete zone %s at %s: %s" % (zone, url, info['msg']))
+        module.fail_json(msg=f"failed to delete zone {zone} at {url}: {info['msg']}")
 
     return True
 
@@ -239,8 +239,8 @@ def zone_add_slave(module, base_url, zone, masters, comment):
     if kind == 'SLAVE':
         return False
 
-    if kind == 'MASTER' or kind == 'NATIVE':
-        module.fail_json( msg="zone %s is %s. Cannot convert to slave" % (zone, kind))
+    if kind in ['MASTER', 'NATIVE']:
+        module.fail_json(msg=f"zone {zone} is {kind}. Cannot convert to slave")
 
     masters = masters.split(',')
 
@@ -259,7 +259,10 @@ def zone_add_slave(module, base_url, zone, masters, comment):
 
     response, info = fetch_url(module, base_url, data=payload, headers=headers, method='POST')
     if info['status'] != 200:
-        module.fail_json(msg="failed to create slave zone %s at %s: %s" % (zone, base_url, info['msg']))
+        module.fail_json(
+            msg=f"failed to create slave zone {zone} at {base_url}: {info['msg']}"
+        )
+
 
     return True
 
@@ -267,15 +270,8 @@ def zone_add_master(module, base_url, zone, soa_rdata, ns_rrset, comment, ttl=60
     ''' Add a new Master/Native zone to PowerDNS '''
 
     kind = zone_exists(module, base_url, zone)
-    if kind == 'MASTER' or kind == 'NATIVE':
+    if kind in ['MASTER', 'NATIVE']:
         return False
-
-    if kind == 'MASTER':
-        if kind == 'SLAVE' or kind == 'NATIVE':
-            module.fail_json( msg="zone %s is %s. Cannot convert to master" % (zone, kind))
-    if kind == 'NATIVE':
-        if kind == 'SLAVE' or kind == 'MASTER':
-            module.fail_json( msg="zone %s is %s. Cannot convert to native" % (zone, kind))
 
     records = []
     data = {
@@ -300,21 +296,25 @@ def zone_add_master(module, base_url, zone, soa_rdata, ns_rrset, comment, ttl=60
         'content'   : soa_rdata,
     })
 
-    for ns in ns_rrset.split(','):
-        records.append({
-            'type'      : 'NS',
-            'name'      : zone,
-            'ttl'       : ttl,
-            'disabled'  : False,
-            'content'   : ns,
-        })
-
+    records.extend(
+        {
+            'type': 'NS',
+            'name': zone,
+            'ttl': ttl,
+            'disabled': False,
+            'content': ns,
+        }
+        for ns in ns_rrset.split(',')
+    )
 
     payload = json.dumps(data)
 
     response, info = fetch_url(module, base_url, data=payload, headers=headers, method='POST')
     if info['status'] != 200:
-        module.fail_json(msg="failed to create %s zone %s at %s: %s" % (kind, zone, base_url, info['msg']))
+        module.fail_json(
+            msg=f"failed to create {kind} zone {zone} at {base_url}: {info['msg']}"
+        )
+
 
     return True
 
@@ -353,9 +353,9 @@ def main():
     # to override those
     read_pdns_conf(path=module.params['pdnsconf'])
 
-    api_key   = module.params['api_key'] if module.params['api_key'] else api_key
-    api_host  = module.params['api_host'] if module.params['api_host'] else api_host
-    api_port  = module.params['api_port'] if module.params['api_port'] else api_port
+    api_key = module.params['api_key'] or api_key
+    api_host = module.params['api_host'] or api_host
+    api_port = module.params['api_port'] or api_port
     zone      = module.params['zone']
     masters   = module.params['masters']
     action    = module.params['action']
@@ -368,29 +368,29 @@ def main():
     headers['X-API-Key'] = api_key
 
     if api_host is None or api_key is None or api_port is None:
-        module.fail_json(msg="Zone %s requires api_host, api_key, api_port" % (zone))
+        module.fail_json(msg=f"Zone {zone} requires api_host, api_key, api_port")
 
     changed=True
 
     if action == 'master':
         if soa is None:
-            module.fail_json( msg="Master zone %s requires SOA" % (zone))
+            module.fail_json(msg=f"Master zone {zone} requires SOA")
         if nsset is None:
-            module.fail_json( msg="Master zone %s requires NS set" % (zone))
+            module.fail_json(msg=f"Master zone {zone} requires NS set")
 
         changed = zone_add_master(module, base_url, zone, soa, nsset, comment, ttl, 'master')
 
     if action == 'native':
         if soa is None:
-            module.fail_json( msg="Native zone %s requires SOA" % (zone))
+            module.fail_json(msg=f"Native zone {zone} requires SOA")
         if nsset is None:
-            module.fail_json( msg="Native zone %s requires NS set" % (zone))
+            module.fail_json(msg=f"Native zone {zone} requires NS set")
 
         changed = zone_add_master(module, base_url, zone, soa, nsset, comment, ttl, 'native')
 
     if action == 'slave':
         if masters is None:
-            module.fail_json( msg="Slave zone %s requires masters" % (zone))
+            module.fail_json(msg=f"Slave zone {zone} requires masters")
 
         changed = zone_add_slave(module, base_url, zone, masters, comment)
 

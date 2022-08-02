@@ -38,6 +38,5 @@ def test_http_tcp_port(host):
 
 
 def test_admin_tcp_port(host):
-    port = host.socket("tcp://%s" %
-                       defaults['influxdb_rpc_addr'])
+    port = host.socket(f"tcp://{defaults['influxdb_rpc_addr']}")
     assert port.is_listening

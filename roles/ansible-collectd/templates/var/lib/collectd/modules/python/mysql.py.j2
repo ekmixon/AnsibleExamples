@@ -301,10 +301,7 @@ def mysql_query(conn, query):
 
 def fetch_mysql_status(conn):
 	result = mysql_query(conn, 'SHOW GLOBAL STATUS')
-	status = {}
-	for row in result.fetchall():
-		status[row['Variable_name']] = row['Value']
-
+	status = {row['Variable_name']: row['Value'] for row in result.fetchall()}
 	# calculate the number of unpurged txns from existing variables
 	if 'Innodb_max_trx_id' in status:
 		status['Innodb_unpurged_txns'] = int(status['Innodb_max_trx_id']) - int(status['Innodb_purge_trx_id'])
@@ -365,7 +362,7 @@ def fetch_mysql_process_states(conn):
 	states = MYSQL_PROCESS_STATES.copy()
 	for row in result.fetchall():
 		state = row['State']
-		if state == '' or state == None: state = 'none'
+		if state == '' or state is None: state = 'none'
 		state = re.sub(r'^(Table lock|Waiting for .*lock)$', "Locked", state)
 		state = state.lower().replace(" ", "_")
 		if state not in states: state = 'other'
@@ -376,12 +373,11 @@ def fetch_mysql_process_states(conn):
 def fetch_mysql_variables(conn):
 	global MYSQL_VARS
 	result = mysql_query(conn, 'SHOW GLOBAL VARIABLES')
-	variables = {}
-	for row in result.fetchall():
-		if row['Variable_name'] in MYSQL_VARS:
-			variables[row['Variable_name']] = row['Value']
-
-	return variables
+	return {
+		row['Variable_name']: row['Value']
+		for row in result.fetchall()
+		if row['Variable_name'] in MYSQL_VARS
+	}
 
 def fetch_mysql_response_times(conn):
 	response_times = {}
@@ -428,8 +424,6 @@ def fetch_innodb_stats(conn):
 			stats['current_transactions'] += 1
 			if line.find("ACTIVE") != -1:
 				stats['active_transactions'] += 1
-		# LOCK WAIT 228 lock struct(s), heap size 46632, 65 row lock(s), undo log entries 1
-		# 205 lock struct(s), heap size 30248, 37 row lock(s), undo log entries 1
 		elif line.find("lock struct(s)") != -1:
 			if line.find("LOCK WAIT") != -1:
 				stats['innodb_lock_structs'] += int(row[2])
@@ -441,10 +435,7 @@ def fetch_innodb_stats(conn):
 				if line.find(match) == -1: continue
 				for key in MYSQL_INNODB_STATUS_MATCHES[match]:
 					value = MYSQL_INNODB_STATUS_MATCHES[match][key]
-					if type(value) is int:
-						stats[key] = int(row[value])
-					else:
-						stats[key] = value(row, stats)
+					stats[key] = int(row[value]) if type(value) is int else value(row, stats)
 				break
 
 	return stats
@@ -452,13 +443,13 @@ def fetch_innodb_stats(conn):
 def log_verbose(msg):
 	if MYSQL_CONFIG['Verbose'] == False:
 		return
-	collectd.info('mysql plugin: %s' % msg)
+	collectd.info(f'mysql plugin: {msg}')
 
 def dispatch_value(prefix, key, value, type, type_instance=None):
 	if not type_instance:
 		type_instance = key
 
-	log_verbose('Sending value: %s/%s=%s' % (prefix, type_instance, value))
+	log_verbose(f'Sending value: {prefix}/{type_instance}={value}')
 	if not value:
 		return
 	value = int(value) # safety check

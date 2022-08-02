@@ -101,7 +101,7 @@ def _get_ksclient(module, kwargs):
             auth_url=module.params.get('auth_url'),
             region_name=module.params.get('region_name'))
     except Exception as e:
-        module.fail_json(msg = "Error authenticating to the keystone: %s " % e.message)
+        module.fail_json(msg=f"Error authenticating to the keystone: {e.message} ")
     global _os_keystone
     _os_keystone = kclient
     return kclient
@@ -111,7 +111,7 @@ def _get_endpoint(module, ksclient):
     try:
         endpoint = ksclient.service_catalog.url_for(service_type='network', endpoint_type='publicURL')
     except Exception as e:
-        module.fail_json(msg = "Error getting endpoint for glance: %s" % e.message)
+        module.fail_json(msg=f"Error getting endpoint for glance: {e.message}")
     return endpoint
 
 def _get_neutron_client(module, kwargs):
@@ -125,7 +125,7 @@ def _get_neutron_client(module, kwargs):
     try:
         neutron = client.Client('2.0', **kwargs)
     except Exception as e:
-        module.fail_json(msg = "Error in connecting to neutron: %s " % e.message)
+        module.fail_json(msg=f"Error in connecting to neutron: {e.message} ")
     return neutron
 
 def _get_server_state(module, nova):
@@ -141,7 +141,7 @@ def _get_server_state(module, nova):
                     server_info = info
                     break
     except Exception as e:
-        module.fail_json(msg = "Error in getting the server list: %s" % e.message)
+        module.fail_json(msg=f"Error in getting the server list: {e.message}")
     return server_info, server
 
 def _get_port_info(neutron, module, instance_id):
@@ -161,10 +161,15 @@ def _get_port_info(neutron, module, instance_id):
     try:
         ports = neutron.list_ports(**kwargs)
     except Exception as e:
-        module.fail_json( msg = "Error in listing ports: %s" % e.message)
-    if not ports['ports']:
-        return None, None
-    return ports['ports'][0]['fixed_ips'][0]['ip_address'], ports['ports'][0]['id']
+        module.fail_json(msg=f"Error in listing ports: {e.message}")
+    return (
+        (
+            ports['ports'][0]['fixed_ips'][0]['ip_address'],
+            ports['ports'][0]['id'],
+        )
+        if ports['ports']
+        else (None, None)
+    )
 
 def _get_floating_ip(module, neutron, fixed_ip_address):
     kwargs = {
@@ -174,9 +179,14 @@ def _get_floating_ip(module, neutron, fixed_ip_address):
         ips = neutron.list_floatingips(**kwargs)
     except Exception as e:
         module.fail_json(msg = "error in fetching the floatingips's %s" % e.message)
-    if not ips['floatingips']:
-        return None, None
-    return ips['floatingips'][0]['id'], ips['floatingips'][0]['floating_ip_address']
+    return (
+        (
+            ips['floatingips'][0]['id'],
+            ips['floatingips'][0]['floating_ip_address'],
+        )
+        if ips['floatingips']
+        else (None, None)
+    )
 
 def _get_tenant_id(module):
     tenants = _get_ksclient(module, {}).tenants.list()
@@ -210,7 +220,10 @@ def _create_floating_ip(neutron, module, port_id, net_id):
     try:
         result = neutron.create_floatingip({'floatingip': kwargs})
     except Exception as e:
-        module.fail_json(msg="There was an error in updating the floating ip address: %s" % e.message)
+        module.fail_json(
+            msg=f"There was an error in updating the floating ip address: {e.message}"
+        )
+
     module.exit_json(changed=True, result=result, public_ip=result['floatingip']['floating_ip_address'])
 
 def _get_net_id(neutron, network_name):
@@ -220,10 +233,8 @@ def _get_net_id(neutron, network_name):
     try:
         networks = neutron.list_networks(**kwargs)
     except Exception as e:
-        module.fail_json("Error in listing neutron networks: %s" % e.message)
-    if not networks['networks']:
-        return None
-    return networks['networks'][0]['id']
+        module.fail_json(f"Error in listing neutron networks: {e.message}")
+    return networks['networks'][0]['id'] if networks['networks'] else None
 
 def _update_floating_ip(neutron, module, port_id, floating_ip_id):
     kwargs = {
@@ -232,7 +243,10 @@ def _update_floating_ip(neutron, module, port_id, floating_ip_id):
     try:
         result = neutron.update_floatingip(floating_ip_id, {'floatingip': kwargs})
     except Exception as e:
-        module.fail_json(msg="There was an error in updating the floating ip address: %s" % e.message)
+        module.fail_json(
+            msg=f"There was an error in updating the floating ip address: {e.message}"
+        )
+
     module.exit_json(changed=True, result=result, public_ip=result['floatingip']['floating_ip_address'])
 
 
@@ -259,7 +273,7 @@ def main():
             region_name=module.params.get('region_name'))
         neutron = _get_neutron_client(module, module.params)
     except Exception as e:
-        module.fail_json(msg="Error in authenticating to nova: %s" % e.message)
+        module.fail_json(msg=f"Error in authenticating to nova: {e.message}")
 
     server_info, server_obj = _get_server_state(module, nova)
     if not server_info:

@@ -110,7 +110,7 @@ def get_service(keystone, name):
     services = [x for x in keystone.services.list() if x.name == name]
     count = len(services)
     if count == 0:
-        raise KeyError("No keystone services with name %s" % name)
+        raise KeyError(f"No keystone services with name {name}")
     elif count > 1:
         raise ValueError("%d services with name %s" % (count, name))
     else:
@@ -129,7 +129,7 @@ def get_endpoint(keystone, name, region, ignore_other_regions):
 
     count = len(endpoints)
     if count == 0:
-        raise KeyError("No keystone endpoints with service name %s" % name)
+        raise KeyError(f"No keystone endpoints with service name {name}")
     elif count > 1:
         raise ValueError("%d endpoints with service name %s" % (count, name))
     else:
@@ -213,11 +213,9 @@ def ensure_service_absent(keystone, name, check_mode):
     """ Ensure the service is absent"""
     try:
         service = get_service(keystone, name)
-        endpoints = [x for x in keystone.endpoints.list()
-                       if x.service_id == service.id]
-
-        # Don't delete the service if it still has endpoints
-        if endpoints:
+        if endpoints := [
+            x for x in keystone.endpoints.list() if x.service_id == service.id
+        ]:
             return False
 
         if not check_mode:
@@ -329,8 +327,7 @@ def main():
     except Exception:
         if check_mode:
             # If we have a failure in check mode
-            module.exit_json(changed=True,
-                             msg="exception: %s" % traceback.format_exc())
+            module.exit_json(changed=True, msg=f"exception: {traceback.format_exc()}")
         else:
             module.fail_json(msg=traceback.format_exc())
     else:

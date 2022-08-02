@@ -10,24 +10,22 @@ def print_verbose(message):
 
 def find_vm(name):
     try:
-        vm = con.get_vm_by_name(name)
-        return vm
+        return con.get_vm_by_name(name)
     except VIException:
         return None
 
 def find_ip(vm,ipv6=False):
     ips = None
-    net_info = vm.get_property('net',False)
-    if net_info:
+    if net_info := vm.get_property('net', False):
         for ip in net_info[0]['ip_addresses']:
             if ipv6 and re.match('\d{1,4}\:.*',ip) and not re.match('fe83\:.*',ip):
-                print_verbose('IPv6 address found: %s' % ip)
-                ips = str(ips) + ';' + ip
-                #return ip
+                print_verbose(f'IPv6 address found: {ip}')
+                ips = f'{str(ips)};{ip}'
+                            #return ip
             elif not ipv6 and re.match('\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}',ip) and ip != '127.0.0.1':
-                print_verbose('IPv4 address found: %s' % ip)
-                ips = str(ips) + ';' + ip
-                #return ip
+                print_verbose(f'IPv4 address found: {ip}')
+                ips = f'{str(ips)};{ip}'
+                            #return ip
     return ips
 
 parser = argparse.ArgumentParser(description="Deploy a template into multiple VM's")

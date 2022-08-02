@@ -30,7 +30,7 @@ class AnsibleMySQL(object):
             if self.args.action != "addhost":
                 self.gather_inventory()
                 self.process_results()
-            elif self.args.action == "addhost":
+            else:
                 self.add_host()
         finally:
             self.db_close_connection()
@@ -187,8 +187,10 @@ class AnsibleMySQL(object):
         if self.args.action == "addhost" and (self.args.host is None or
                                               self.args.group is None or self.args.sshhost is None):
             parser.error("--host, --group and --sshhost are required when adding a new host")
-        if (self.args.action == "queryhost" or
-                self.args.action == "queryhostdetails") and self.args.host is None:
+        if (
+            self.args.action in ["queryhost", "queryhostdetails"]
+            and self.args.host is None
+        ):
             parser.error("--host is required")
         if self.args.action == "querygroup" and self.args.group is None:
             parser.error("--group is required")

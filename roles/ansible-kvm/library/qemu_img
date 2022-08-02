@@ -90,10 +90,10 @@ def main():
 
         if not os.path.exists(dest):
             if not module.check_mode:
-                if not opt:
-                    module.run_command('%s create -f %s "%s" %s'%(qemu_img, img_format, dest, size), check_rc=True)
-                else:
+                if opt:
                     module.run_command('%s create -f %s -o %s "%s" %s'%(qemu_img, img_format, opt, dest, size), check_rc=True)
+                else:
+                    module.run_command('%s create -f %s "%s" %s'%(qemu_img, img_format, dest, size), check_rc=True)
             changed = True
         else:
             rc, stdout, _ = module.run_command('%s info "%s"'%(qemu_img, dest), check_rc=True)
@@ -103,17 +103,16 @@ def main():
                     ### virtual size: 5.0M (5242880 bytes)
                     current_size = int(line.split('(')[1].split()[0])
             if not current_size:
-                module.fail_json(msg='Unable to read virtual disk size of %s'%(dest))
+                module.fail_json(msg=f'Unable to read virtual disk size of {dest}')
             if current_size != size:
                 if not module.check_mode:
                     module.run_command('%s resize "%s" %s'%(qemu_img, dest, size), check_rc=True)
                 changed = True
 
-    if module.params['state'] == 'absent':
-        if os.path.exists(dest):
-            if not module.check_mode:
-                os.remove(dest)
-            changed = True
+    if module.params['state'] == 'absent' and os.path.exists(dest):
+        if not module.check_mode:
+            os.remove(dest)
+        changed = True
 
     module.exit_json(changed=changed)
 

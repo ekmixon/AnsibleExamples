@@ -94,7 +94,7 @@ def _get_ksclient(module, kwargs):
             auth_url=module.params.get('auth_url'),
             region_name=module.params.get('region_name'))
     except Exception as e:
-        module.fail_json(msg = "Error authenticating to the keystone: %s " % e.message)
+        module.fail_json(msg=f"Error authenticating to the keystone: {e.message} ")
     global _os_keystone
     _os_keystone = kclient
     return kclient
@@ -104,7 +104,7 @@ def _get_endpoint(module, ksclient):
     try:
         endpoint = ksclient.service_catalog.url_for(service_type='network', endpoint_type='publicURL')
     except Exception as e:
-        module.fail_json(msg = "Error getting endpoint for glance: %s" % e.message)
+        module.fail_json(msg=f"Error getting endpoint for glance: {e.message}")
     return endpoint
 
 def _get_neutron_client(module, kwargs):
@@ -118,7 +118,7 @@ def _get_neutron_client(module, kwargs):
     try:
         neutron = client.Client('2.0', **kwargs)
     except Exception as e:
-        module.fail_json(msg = "Error in connecting to neutron: %s " % e.message)
+        module.fail_json(msg=f"Error in connecting to neutron: {e.message} ")
     return neutron
 
 def _get_router(module, neutron):
@@ -128,10 +128,8 @@ def _get_router(module, neutron):
     try:
         routers = neutron.list_routers(**kwargs)
     except Exception as e:
-        module.fail_json(msg = "Error in getting the router list: %s " % e.message)
-    if not routers['routers']:
-            return None
-    return routers['routers'][0]
+        module.fail_json(msg=f"Error in getting the router list: {e.message} ")
+    return routers['routers'][0] if routers['routers'] else None
 
 def _get_net_id(neutron, module):
     kwargs = {
@@ -141,10 +139,8 @@ def _get_net_id(neutron, module):
     try:
         networks = neutron.list_networks(**kwargs)
     except Exception as e:
-        module.fail_json("Error in listing neutron networks: %s" % e.message)
-    if not networks['networks']:
-        return None
-    return networks['networks'][0]['id']
+        module.fail_json(f"Error in listing neutron networks: {e.message}")
+    return networks['networks'][0]['id'] if networks['networks'] else None
 
 def _add_gateway_router(neutron, module, router_id, network_id):
     kwargs = {
@@ -155,14 +151,14 @@ def _add_gateway_router(neutron, module, router_id, network_id):
     try:
         neutron.add_gateway_router(router_id, kwargs)
     except Exception as e:
-        module.fail_json(msg = "Error in adding gateway to router: %s" % e.message)
+        module.fail_json(msg=f"Error in adding gateway to router: {e.message}")
     return True
 
 def _remove_gateway_router(neutron, module, router_id):
     try:
         neutron.remove_gateway_router(router_id)
     except Exception as e:
-        module.fail_json(msg = "Error in removing gateway to router: %s" % e.message)
+        module.fail_json(msg=f"Error in removing gateway to router: {e.message}")
     return True
 
 def main():
@@ -195,18 +191,17 @@ def main():
         if router.get('external_gateway_info') is None:
             _add_gateway_router(neutron, module, router['id'], network_id)
             module.exit_json(changed=True, updated=False, result="created")
-        else:
-            if router['external_gateway_info']['network_id'] == network_id \
+        elif router['external_gateway_info']['network_id'] == network_id \
                     and router['external_gateway_info']['enable_snat'] == \
                     module.params['enable_snat']:
-                module.exit_json(changed=False, updated=False, result="success")
-            elif router['external_gateway_info']['network_id'] == network_id:
-                _add_gateway_router(neutron, module, router['id'], network_id)
-                module.exit_json(changed=True, updated=True, result="updated")
-            else:
-                _remove_gateway_router(neutron, module, router['id'])
-                _add_gateway_router(neutron, module, router['id'], network_id)
-                module.exit_json(changed=True, updated=True, result="created")
+            module.exit_json(changed=False, updated=False, result="success")
+        elif router['external_gateway_info']['network_id'] == network_id:
+            _add_gateway_router(neutron, module, router['id'], network_id)
+            module.exit_json(changed=True, updated=True, result="updated")
+        else:
+            _remove_gateway_router(neutron, module, router['id'])
+            _add_gateway_router(neutron, module, router['id'], network_id)
+            module.exit_json(changed=True, updated=True, result="created")
 
     if module.params['state'] == 'absent':
         if router.get('external_gateway_info') is None:

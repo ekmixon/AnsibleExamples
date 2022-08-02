@@ -159,7 +159,7 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 #]
 
 OPENSTACK_HOST = "127.0.0.1"
-OPENSTACK_KEYSTONE_URL = "http://%s:5000/v2.0" % OPENSTACK_HOST
+OPENSTACK_KEYSTONE_URL = f"http://{OPENSTACK_HOST}:5000/v2.0"
 OPENSTACK_KEYSTONE_DEFAULT_ROLE = "_member_"
 
 # Enables keystone web single-sign-on if set to True.
@@ -758,18 +758,6 @@ REST_API_REQUIRED_SETTINGS = ['OPENSTACK_HYPERVISOR_FEATURES',
                               'OPENSTACK_IMAGE_FORMATS',
                               'OPENSTACK_KEYSTONE_DEFAULT_DOMAIN']
 
-# Additional settings can be made available to the client side for
-# extensibility by specifying them in REST_API_ADDITIONAL_SETTINGS
-# !! Please use extreme caution as the settings are transferred via HTTP/S
-# and are not encrypted on the browser. This is an experimental API and
-# may be deprecated in the future without notice.
-#REST_API_ADDITIONAL_SETTINGS = []
-
-###############################################################################
-# Ubuntu Settings
-###############################################################################
-
- # The default theme if no cookie is present
 DEFAULT_THEME = 'ubuntu'
 
 # Default Ubuntu apache configuration uses /horizon as the application root.

@@ -199,9 +199,9 @@ class CertificateSigningRequest(object):
         }
 
         if self.subjectAltName is None:
-            self.subjectAltName = 'DNS:%s' % self.subject['CN']
+            self.subjectAltName = f"DNS:{self.subject['CN']}"
 
-        self.subject = dict((k, v) for k, v in self.subject.items() if v)
+        self.subject = {k: v for k, v in self.subject.items() if v}
 
     def generate(self, module):
         '''Generate the certificate signing request.'''
@@ -225,9 +225,8 @@ class CertificateSigningRequest(object):
             self.request = req
 
             try:
-                csr_file = open(self.path, 'wb')
-                csr_file.write(crypto.dump_certificate_request(crypto.FILETYPE_PEM, self.request))
-                csr_file.close()
+                with open(self.path, 'wb') as csr_file:
+                    csr_file.write(crypto.dump_certificate_request(crypto.FILETYPE_PEM, self.request))
             except (IOError, OSError) as exc:
                 raise CertificateSigningRequestError(exc)
         else:
@@ -251,14 +250,12 @@ class CertificateSigningRequest(object):
     def dump(self):
         '''Serialize the object into a dictionary.'''
 
-        result = {
+        return {
             'csr': self.path,
             'subject': self.subject,
             'subjectAltName': self.subjectAltName,
-            'changed': self.changed
+            'changed': self.changed,
         }
-
-        return result
 
 
 def main():
@@ -291,7 +288,7 @@ def main():
     base_dir = os.path.dirname(module.params['path'])
 
     if not os.path.isdir(base_dir):
-        module.fail_json(name=path, msg='The directory %s does not exist' % path)
+        module.fail_json(name=path, msg=f'The directory {path} does not exist')
 
     csr = CertificateSigningRequest(module)
 

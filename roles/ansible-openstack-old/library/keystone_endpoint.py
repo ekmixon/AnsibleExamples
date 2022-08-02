@@ -146,7 +146,7 @@ def get_service(keystone, service_name):
     services = [x for x in keystone.services.list() if x.name == service_name]
     count = len(services)
     if count == 0:
-        raise KeyError("No keystone services with name %s" % service_name)
+        raise KeyError(f"No keystone services with name {service_name}")
     elif count > 1:
         raise ValueError("%d services with name %s" % (count, service_name))
     else:
